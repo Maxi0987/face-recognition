@@ -47,3 +47,6 @@ while True:  # Startet eine Endlosschleife für die Videoverarbeitung
 
 cap.release()  # Gibt die Kamera frei
 cv2.destroyAllWindows()  # Schließt alle OpenCV-Fenster
+
+# Diese Datei wird nicht mehr benötigt, da die Gesichtserkennung im Flask-Stream läuft.
+# ...keine Änderungen notwendig, aber nicht mehr ausführen...

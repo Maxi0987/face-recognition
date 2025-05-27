@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Gesichtserkennung Kamera</title>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>FaceID Login</h1>
+        <img class="camera-frame" id="video-stream" src="{{ url_for('video_feed') }}" width="320" height="240" alt="Kamera">
+        <video id="register-video" width="320" height="240" autoplay playsinline style="display:none;"></video>
+        <div class="info">Bitte schauen Sie in die Kamera, um sich anzumelden.</div>
+        <div class="loader" id="loader" style="display:none;"></div>
+        <button id="register-btn" class="register-btn" type="button">Gesicht registrieren</button>
+        <div id="register-message" class="info"></div>
+        <canvas id="capture-canvas" width="320" height="240" style="display:none;"></canvas>
+    </div>
+    <script>
+        let redirecting = false;
+        setInterval(function() {
+            if (redirecting) return;
+            fetch("{{ url_for('status') }}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.logged_in && !redirecting) {
+                        redirecting = true;
+                        document.getElementById('loader').style.display = 'block';
+                        setTimeout(function() {
+                            window.location.href = "{{ url_for('dashboard') }}";
+                        }, 5000); // 5 Sekunden warten
+                    }
+                });
+        }, 1000);
+
+        // WebRTC für Registrierung
+        let registerVideo = document.getElementById('register-video');
+        let registerBtn = document.getElementById('register-btn');
+        let canvas = document.getElementById('capture-canvas');
+        let ctx = canvas.getContext('2d');
+        let streamStarted = false;
+
+        registerBtn.onclick = function() {
+            if (!streamStarted) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function(stream) {
+                        registerVideo.srcObject = stream;
+                        registerVideo.style.display = 'block';
+                        streamStarted = true;
+                        setTimeout(captureAndSend, 1000); // 1 Sekunde warten, damit Kamera "warm" ist
+                    })
+                    .catch(function(err) {
+                        console.error("Kamera-Fehler:", err); // Debug-Ausgabe
+                        document.getElementById('register-message').textContent = 'Kamera-Zugriff verweigert! (' + err.name + ')';
+                        document.getElementById('register-message').style.color = "#ff5555";
+                    });
+            } else {
+                captureAndSend();
+            }
+        };
+
+        function captureAndSend() {
+            ctx.drawImage(registerVideo, 0, 0, canvas.width, canvas.height);
+            let dataURL = canvas.toDataURL('image/jpeg');
+            fetch("{{ url_for('register_face') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image: dataURL })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let msg = document.getElementById('register-message');
+                msg.textContent = data.message;
+                msg.style.color = data.success ? "#00ffae" : "#ff5555";
+            });
+        }
+    </script>
+</body>
+</html>
