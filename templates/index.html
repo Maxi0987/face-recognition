@@ -13,6 +13,7 @@
         <video id="register-video" width="320" height="240" autoplay playsinline style="display:none;"></video>
         <div class="info">Bitte schauen Sie in die Kamera, um sich anzumelden.</div>
         <div class="loader" id="loader" style="display:none;"></div>
+        <input id="register-username" type="text" placeholder="Benutzername" style="margin-top:18px; padding:8px; border-radius:6px; border:none; font-size:1rem;">
         <button id="register-btn" class="register-btn" type="button">Gesicht registrieren</button>
         <div id="register-message" class="info"></div>
         <canvas id="capture-canvas" width="320" height="240" style="display:none;"></canvas>
@@ -42,13 +43,20 @@
         let streamStarted = false;
 
         registerBtn.onclick = function() {
+            let username = document.getElementById('register-username').value.trim();
+            if (!username) {
+                let msg = document.getElementById('register-message');
+                msg.textContent = "Bitte Benutzernamen eingeben!";
+                msg.style.color = "#ff5555";
+                return;
+            }
             if (!streamStarted) {
                 navigator.mediaDevices.getUserMedia({ video: true })
                     .then(function(stream) {
                         registerVideo.srcObject = stream;
                         registerVideo.style.display = 'block';
                         streamStarted = true;
-                        setTimeout(captureAndSend, 1000); // 1 Sekunde warten, damit Kamera "warm" ist
+                        setTimeout(function() { captureAndSend(username); }, 1000); // 1 Sekunde warten, damit Kamera "warm" ist
                     })
                     .catch(function(err) {
                         console.error("Kamera-Fehler:", err); // Debug-Ausgabe
@@ -56,17 +64,17 @@
                         document.getElementById('register-message').style.color = "#ff5555";
                     });
             } else {
-                captureAndSend();
+                captureAndSend(username);
             }
         };
 
-        function captureAndSend() {
+        function captureAndSend(username) {
             ctx.drawImage(registerVideo, 0, 0, canvas.width, canvas.height);
             let dataURL = canvas.toDataURL('image/jpeg');
             fetch("{{ url_for('register_face') }}", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ image: dataURL })
+                body: JSON.stringify({ image: dataURL, username: username })
             })
             .then(response => response.json())
             .then(data => {
