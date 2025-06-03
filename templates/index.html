@@ -5,18 +5,113 @@
     <title>Gesichtserkennung Kamera</title>
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background: #f7f7f7;
+            color: #222;
+            font-family: 'Montserrat', Arial, sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.10);
+            padding: 40px 32px 32px 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 350px;
+        }
+        h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+            color: #00b894;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        .camera-frame {
+            border-radius: 12px;
+            box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.07);
+            border: 2px solid #e0e0e0;
+            margin-bottom: 24px;
+            background: #fafafa;
+        }
+        .info {
+            margin-top: 10px;
+            color: #666;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .loader {
+            border: 4px solid #eee;
+            border-top: 4px solid #00b894;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+            margin: 16px auto 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        form {
+            margin-top: 18px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        input[type="text"] {
+            margin-top: 0;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            font-size: 1.1rem;
+            width: 80%;
+            margin-bottom: 10px;
+            background: #fafafa;
+            color: #222;
+            box-shadow: 0 2px 8px #0001;
+        }
+        .register-btn, button[type="submit"] {
+            background: #00b894;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 28px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 8px;
+        }
+        .register-btn:hover, button[type="submit"]:hover {
+            background: #019170;
+        }
+        #register-message {
+            margin-top: 18px;
+            color: #d63031;
+            font-size: 1.08em;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>FaceID Login</h1>
         <img class="camera-frame" id="video-stream" src="{{ url_for('video_feed') }}" width="320" height="240" alt="Kamera">
-        <video id="register-video" width="320" height="240" autoplay playsinline style="display:none;"></video>
         <div class="info">Bitte schauen Sie in die Kamera, um sich anzumelden.</div>
         <div class="loader" id="loader" style="display:none;"></div>
-        <input id="register-username" type="text" placeholder="Benutzername" style="margin-top:18px; padding:8px; border-radius:6px; border:none; font-size:1rem;">
-        <button id="register-btn" class="register-btn" type="button">Gesicht registrieren</button>
+        <form method="post" action="/capture_face">
+            <input id="register-username" type="text" name="username" placeholder="Benutzername" required>
+            <button id="register-btn" class="register-btn" type="submit">Gesicht registrieren</button>
+        </form>
         <div id="register-message" class="info"></div>
-        <canvas id="capture-canvas" width="320" height="240" style="display:none;"></canvas>
     </div>
     <script>
         let redirecting = false;
@@ -34,55 +129,6 @@
                     }
                 });
         }, 1000);
-
-        // WebRTC für Registrierung
-        let registerVideo = document.getElementById('register-video');
-        let registerBtn = document.getElementById('register-btn');
-        let canvas = document.getElementById('capture-canvas');
-        let ctx = canvas.getContext('2d');
-        let streamStarted = false;
-
-        registerBtn.onclick = function() {
-            let username = document.getElementById('register-username').value.trim();
-            if (!username) {
-                let msg = document.getElementById('register-message');
-                msg.textContent = "Bitte Benutzernamen eingeben!";
-                msg.style.color = "#ff5555";
-                return;
-            }
-            if (!streamStarted) {
-                navigator.mediaDevices.getUserMedia({ video: true })
-                    .then(function(stream) {
-                        registerVideo.srcObject = stream;
-                        registerVideo.style.display = 'block';
-                        streamStarted = true;
-                        setTimeout(function() { captureAndSend(username); }, 1000); // 1 Sekunde warten, damit Kamera "warm" ist
-                    })
-                    .catch(function(err) {
-                        console.error("Kamera-Fehler:", err); // Debug-Ausgabe
-                        document.getElementById('register-message').textContent = 'Kamera-Zugriff verweigert! (' + err.name + ')';
-                        document.getElementById('register-message').style.color = "#ff5555";
-                    });
-            } else {
-                captureAndSend(username);
-            }
-        };
-
-        function captureAndSend(username) {
-            ctx.drawImage(registerVideo, 0, 0, canvas.width, canvas.height);
-            let dataURL = canvas.toDataURL('image/jpeg');
-            fetch("{{ url_for('register_face') }}", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ image: dataURL, username: username })
-            })
-            .then(response => response.json())
-            .then(data => {
-                let msg = document.getElementById('register-message');
-                msg.textContent = data.message;
-                msg.style.color = data.success ? "#00ffae" : "#ff5555";
-            });
-        }
     </script>
 </body>
 </html>
