@@ -5,11 +5,23 @@
     <title>Gesichtserkennung Kamera</title>
     <link href="https://fonts.googleapis.com/css?family=Poppins:400,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    <style>
+        /* Optional: Show a skeleton loader for the camera frame */
+        .camera-frame.skeleton {
+            background: linear-gradient(90deg, #eee 25%, #f3f3f3 37%, #eee 63%);
+            background-size: 400% 100%;
+            animation: skeleton-loading 1.2s ease-in-out infinite;
+        }
+        @keyframes skeleton-loading {
+            0% { background-position: 100% 50%; }
+            100% { background-position: 0 50%; }
+        }
+    </style>
 </head>
 <body>
     <div class="login-container">
         <h2>FaceID Login</h2>
-        <img class="camera-frame" id="video-stream" src="{{ url_for('video_feed') }}" width="320" height="240" alt="Kamera">
+        <img class="camera-frame skeleton" id="video-stream" src="{{ url_for('video_feed') }}" width="320" height="240" alt="Kamera" loading="eager">
         <p>Bitte schauen Sie in die Kamera, um sich anzumelden.</p>
         <div class="loader" id="loader" style="display:none;"></div>
         <form method="post" action="/capture_face">
@@ -19,9 +31,25 @@
         <div id="register-message" class="message"></div>
     </div>
     <script>
+        // Show skeleton loader until the camera frame is loaded
         let redirecting = false;
+        let videoLoaded = false;
+
+        function setLoaded() {
+            videoLoaded = true;
+            document.getElementById('video-stream').classList.remove('skeleton');
+        }
+        const videoElem = document.getElementById('video-stream');
+        videoElem.addEventListener('load', setLoaded);
+        if (videoElem.complete) setLoaded();
+
+        // Try to force browser to preload the camera stream
+        videoElem.setAttribute('loading', 'eager');
+        videoElem.src = "{{ url_for('video_feed') }}" + "?t=" + Date.now();
+
+        // Start status polling only after camera is visible
         setInterval(function() {
-            if (redirecting) return;
+            if (redirecting || !videoLoaded) return;
             fetch("{{ url_for('status') }}")
                 .then(response => response.json())
                 .then(data => {
@@ -30,7 +58,7 @@
                         document.getElementById('loader').style.display = 'block';
                         setTimeout(function() {
                             window.location.href = "{{ url_for('dashboard') }}";
-                        }, 5000); // 5 Sekunden warten
+                        }, 5000);
                     }
                 });
         }, 1000);

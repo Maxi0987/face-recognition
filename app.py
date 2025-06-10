@@ -5,10 +5,10 @@ import numpy as np
 import mysql.connector
 import random
 import logging
-from flask import Flask, render_template, Response, redirect, url_for, session, request, jsonify
+from flask import Flask, render_template, Response, redirect, url_for, session, request, jsonify, make_response
 import cv2
 import face_recognition
-
+from decimal import Decimal
 
 app = Flask(
     __name__,
@@ -20,7 +20,6 @@ app.secret_key = 'dein_geheimer_schluessel'
 login_status = {}
 face_user_map = {}  # encoding.tobytes() -> user_id
 
-# DB-Konfiguration anpassen!
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
@@ -56,44 +55,67 @@ def load_face_encodings(folder_path):
                     face_user_map[encoding.tobytes()] = user_id
     return encodings
 
-good_faces = load_face_encodings('assets/Good')
-known_encodings = [e[0] for e in good_faces]
-known_user_ids = [e[1] for e in good_faces]
+def reload_face_encodings():
+    global good_faces, known_encodings, known_user_ids
+    good_faces = load_face_encodings('assets/Good')
+    known_encodings = [e[0] for e in good_faces]
+    known_user_ids = [e[1] for e in good_faces]
+
+reload_face_encodings()
 
 # Video-Stream-Generator
 def gen_frames(client_id):
     cap = cv2.VideoCapture(0)
-    while True:
-        success, frame = cap.read()
-        if not success:
-            break
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        face_locations = face_recognition.face_locations(rgb_frame)
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
-
-        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-            matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=0.5)
-            label = "unknown face"
-            user_id = None
-            if True in matches:
-                first_match_index = matches.index(True)
-                user_id = known_user_ids[first_match_index]
-                label = get_username_by_id(user_id)
-                if user_id:
-                    login_status[client_id] = user_id
-            color = (0, 255, 0) if user_id else (0, 255, 255)
-            cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-            cv2.putText(frame, label, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-
-        # Wenn eingeloggt, Stream beenden
-        if login_status.get(client_id):
-            break
-
-        ret, buffer = cv2.imencode('.jpg', frame)
+    if not cap.isOpened():
+        # Return a placeholder image if camera is not available
+        error_img = np.full((240, 320, 3), 200, dtype=np.uint8)
+        cv2.putText(error_img, "No Camera", (40, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        _, buffer = cv2.imencode('.jpg', error_img)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-    cap.release()
+        return
+    try:
+        while True:
+            success, frame = cap.read()
+            if not success:
+                break
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            face_locations = face_recognition.face_locations(rgb_frame)
+            face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+
+            for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+                matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=0.5)
+                label = "unknown face"
+                user_id = None
+                if True in matches:
+                    first_match_index = matches.index(True)
+                    user_id = known_user_ids[first_match_index]
+                    label = get_username_by_id(user_id)
+                    if user_id:
+                        login_status[client_id] = user_id
+                color = (0, 255, 0) if user_id else (0, 255, 255)
+                cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
+                cv2.putText(frame, label, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
+            # Wenn eingeloggt, Stream beenden
+            if login_status.get(client_id):
+                break
+
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+    finally:
+        cap.release()
+
+@app.route('/video_feed')
+def video_feed():
+    client_id = request.remote_addr
+    response = Response(gen_frames(client_id), mimetype='multipart/x-mixed-replace; boundary=frame')
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    return response
 
 def get_username_by_id(user_id):
     try:
@@ -163,16 +185,16 @@ def get_user_money(user_id):
         cursor.close()
         conn.close()
         if result:
-            return result[0]
+            return Decimal(result[0])
     except Exception as e:
         print("DB error:", e)
-    return 0
+    return Decimal(0)
 
 def update_user_money(user_id, new_money):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE users SET money = %s WHERE id = %s", (new_money, user_id))
+        cursor.execute("UPDATE users SET money = %s WHERE id = %s", (str(new_money), user_id))
         conn.commit()
         cursor.close()
         conn.close()
@@ -198,11 +220,6 @@ def index():
     # Session explizit löschen, damit niemand ohne FaceID eingeloggt bleibt
     session.pop('user_id', None)
     return render_template('index.html')
-
-@app.route('/video_feed')
-def video_feed():
-    client_id = request.remote_addr
-    return Response(gen_frames(client_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/dashboard')
 def dashboard():
@@ -321,6 +338,8 @@ def register_face():
         known_encodings.append(encoding)
         known_user_ids.append(user_id)
         face_user_map[encoding.tobytes()] = user_id
+        # Reload all encodings to ensure consistency
+        reload_face_encodings()
 
         return jsonify({'success': True, 'message': 'Gesicht und Account erfolgreich registriert!'})
     except Exception as e:
@@ -388,6 +407,7 @@ def capture_face():
     known_encodings.append(encoding)
     known_user_ids.append(user_id)
     face_user_map[encoding.tobytes()] = user_id
+    reload_face_encodings()
 
     return render_template('register_success.html', success=True, message='Gesicht und Account erfolgreich registriert!')
 
@@ -418,11 +438,11 @@ def new_game():
     money = get_user_money(user_id)
     username = get_username(user_id)
     try:
-        bet_amount = int(request.form.get('bet_amount', 10))
+        bet_amount = Decimal(request.form.get('bet_amount', 10))
         if bet_amount < 1:
             session['message'] = "Minimum bet is $1!"
             return redirect(url_for('blackjack'))
-    except ValueError:
+    except Exception:
         session['message'] = "Invalid bet amount!"
         return redirect(url_for('blackjack'))
     if money < bet_amount:
@@ -449,7 +469,7 @@ def new_game():
     if calculate_hand_value(player_hand) == 21:
         session['message'] = 'Blackjack! You win!'
         session['game_over'] = True
-        winnings = bet_amount * 2.5
+        winnings = bet_amount * Decimal('2.5')
         money += winnings
         update_user_money(user_id, money)
         session.modified = True
