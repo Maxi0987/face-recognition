@@ -9,6 +9,7 @@
 ![iOS](https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white)![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 
 > A simple Blackjack game with a leaderboard
+> More docu in docs.md
 
 ## 📋 Table of Contents
 - [Features](#features)

@@ -22,7 +22,10 @@
 
 ## 📖 Overview
 A modern web-based Blackjack game with user authentication, virtual currency system, and a global leaderboard. Built with Flask and MySQL, featuring a sleek, responsive UI with smooth animations and gradients.
-
+The test files are used by the command below to test html&css without the need of starting the flask-server
+```bash
+xdg-open file.html
+```
 ## 🏗️ Architecture
 
 ### Backend (Flask)
