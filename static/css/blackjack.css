@@ -1,0 +1,301 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Add white background to favicon */
+link[rel="icon"] {
+    background-color: white;
+}
+
+html {
+    height: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+body {
+    min-height: 100%;
+    background: #f9f9f9 url('https://www.transparenttextures.com/patterns/cartographer.png');
+    color: #111;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+h1 {
+    font-size: 3.5em;
+    font-weight: 700;
+    background: linear-gradient(90deg, #ff6ec4, #7873f5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.money {
+    font-size: 2.2em;
+    font-weight: bold;
+    margin: 10px 0;
+    color: #4b4b4b;  /* A light pastel green */
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);  /* Adds a subtle glow effect */
+    text-align: center;
+}
+
+.game-area {
+    background: rgba(255, 255, 255, 0.7);
+    padding: 25px 40px;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.hand {
+    background: rgba(255, 255, 255, 0.5);
+    margin: 5px 0;
+    padding: 20px 30px;
+    border-radius: 10px;
+    position: relative;
+    transition: transform 0.3s;
+}
+
+.hand:hover {
+    transform: translateY(-3px);
+}
+
+h2 {
+    font-size: 1.8em;
+    background: linear-gradient(135deg, #ff6ec4, #7873f5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 15px;
+}
+
+.cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 5px 0;
+}
+
+.card {
+    width: 110px;
+    height: 153px;
+    transition: transform 0.3s;
+    position: relative;
+}
+
+.card:hover {
+    transform: translateY(-10px) rotate(5deg);
+}
+
+.card img {
+    width: 100%;
+    height: 100%;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.hand-value {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    backdrop-filter: blur(5px);
+    font-size: 1.1em;
+}
+
+.message {
+    font-size: 1.4em;
+    font-weight: bold;
+    margin: 10px 0;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(255, 110, 196, 0.1), rgba(120, 115, 245, 0.1));
+    border-radius: 10px;
+    text-align: center;
+    backdrop-filter: blur(5px);
+    animation: messageGlow 2s infinite alternate;
+}
+
+@keyframes messageGlow {
+    from {
+        box-shadow: 0 0 10px rgba(255, 110, 196, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(120, 115, 245, 0.5);
+    }
+}
+
+.controls {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.button {
+    background: linear-gradient(45deg, #ff6ec4, #7873f5);
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 1.1em;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    min-width: 160px;
+}
+
+.button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(45deg, #7873f5, #ff6ec4);
+}
+
+.bet-form {
+    display: inline-flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.bet-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.bet-input {
+    padding: 12px 20px;
+    border: 2px solid transparent;
+    border-radius: 25px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #111;
+    font-size: 1.1em;
+    width: 140px;
+    text-align: center;
+    font-weight: bold;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.bet-input:focus {
+    outline: none;
+    border-color: #ff6ec4;
+    box-shadow: 0 0 15px rgba(255, 110, 196, 0.3);
+}
+
+.bet-input::-webkit-inner-spin-button,
+.bet-input::-webkit-outer-spin-button {
+    opacity: 1;
+    height: 28px;
+}
+
+@media screen and (max-width: 1400px) {
+    .game-area {
+        max-width: 1200px;
+        padding: 20px 30px;
+    }
+
+    .card {
+        width: 100px;
+        height: 139px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    html, body {
+        position: relative;
+        overflow-y: auto;
+        height: auto;
+    }
+
+    body {
+        padding: 10px;
+        min-height: 100%;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+
+    .money {
+        font-size: 1.8em;
+        margin: 5px 0;
+    }
+
+    .game-area {
+        padding: 15px;
+        gap: 10px;
+        margin-bottom: 20px;
+        height: auto;
+    }
+
+    .hand {
+        padding: 15px;
+        height: auto;
+    }
+
+    .hand-value {
+        position: relative;
+        right: auto;
+        top: auto;
+        margin-top: 10px;
+        display: inline-block;
+    }
+
+    .cards-container {
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .card {
+        width: 80px;
+        height: 111px;
+    }
+
+    .controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding-bottom: 20px;
+    }
+
+    .button {
+        width: 100%;
+        min-width: unset;
+        padding: 12px 20px;
+    }
+
+    .bet-form {
+        width: 100%;
+    }
+
+    .bet-controls {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .bet-input {
+        width: 100%;
+    }
+} 

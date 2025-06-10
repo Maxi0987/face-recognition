@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Gesichtserkennung Kamera</title>
+    <link href="https://fonts.googleapis.com/css?family=Poppins:400,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/css/auth.css">
+</head>
+<body>
+    <div class="login-container">
+        <h2>FaceID Login</h2>
+        <img class="camera-frame" id="video-stream" src="https://via.placeholder.com/320x240" width="320" height="240" alt="Kamera">
+        <p>Bitte schauen Sie in die Kamera, um sich anzumelden.</p>
+        <div class="loader" id="loader" style="display:none;"></div>
+        <form method="post" action="/capture_face">
+            <input id="register-username" type="text" name="username" placeholder="Benutzername" required>
+            <button id="register-btn" type="submit">Gesicht registrieren</button>
+        </form>
+        <div id="register-message" class="message"></div>
+    </div>
+    <script>
+        // Test script - removed Flask-specific code
+        document.getElementById('loader').style.display = 'block';
+    </script>
+</body>
+</html> 

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackjack</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/blackjack.css') }}">
+</head>
+<body>
+    <h1>Blackjack</h1>
+    
+    <div class="money">💰 ${{ money }}</div>
+    
+    <div class="game-area">
+        <div class="hand">
+            <h2>Dealer's Hand</h2>
+            {% if dealer_hand %}
+                <div class="cards-container">
+                    {# Show first card #}
+                    <div class="card">
+                        <img src="{{ url_for('static', filename='cards/' + {
+                            'A': 'ace',
+                            'K': 'king',
+                            'Q': 'queen',
+                            'J': 'jack'
+                        }.get(dealer_hand[0][0], dealer_hand[0][0].lower()) + '_of_' + {
+                            '♠': 'spades',
+                            '♣': 'clubs',
+                            '♥': 'hearts',
+                            '♦': 'diamonds'
+                        }[dealer_hand[0][1]] + '.png') }}" alt="{{ dealer_hand[0][0] }}{{ dealer_hand[0][1] }}">
+                    </div>
+                    
+                    {# Show hidden cards if game is not over #}
+                    {% if not game_over %}
+                        {% for _ in range(dealer_hand|length - 1) %}
+                            <div class="card">
+                                <img src="{{ url_for('static', filename='cards/card_back.png') }}" alt="Hidden card">
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        {# Show all cards if game is over #}
+                        {% for card in dealer_hand[1:] %}
+                            <div class="card">
+                                <img src="{{ url_for('static', filename='cards/' + {
+                                    'A': 'ace',
+                                    'K': 'king',
+                                    'Q': 'queen',
+                                    'J': 'jack'
+                                }.get(card[0], card[0].lower()) + '_of_' + {
+                                    '♠': 'spades',
+                                    '♣': 'clubs',
+                                    '♥': 'hearts',
+                                    '♦': 'diamonds'
+                                }[card[1]] + '.png') }}" alt="{{ card[0] }}{{ card[1] }}">
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                {# Show value only when game is over #}
+                {% if game_over %}
+                    <div class="hand-value">Value: {{ calculate_hand_value(dealer_hand) }}</div>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="hand">
+            <h2>Your Hand</h2>
+            <div class="cards-container">
+                {% for card in player_hand %}
+                    <div class="card">
+                        <img src="{{ url_for('static', filename='cards/' + {
+                            'A': 'ace',
+                            'K': 'king',
+                            'Q': 'queen',
+                            'J': 'jack'
+                        }.get(card[0], card[0].lower()) + '_of_' + {
+                            '♠': 'spades',
+                            '♣': 'clubs',
+                            '♥': 'hearts',
+                            '♦': 'diamonds'
+                        }[card[1]] + '.png') }}" alt="{{ card[0] }}{{ card[1] }}">
+                    </div>
+                {% endfor %}
+            </div>
+            {% if player_hand %}
+                <div class="hand-value">Value: {{ calculate_hand_value(player_hand) }}</div>
+            {% endif %}
+        </div>
+
+        {% if message %}
+            <div class="message">{{ message }}</div>
+        {% endif %}
+
+        <div class="controls">
+            {% if player_hand and not game_over %}
+                <a href="{{ url_for('hit') }}" class="button">Hit</a>
+                <a href="{{ url_for('blackjack_stand') }}" class="button">Stand</a>
+            {% else %}
+                <form action="{{ url_for('new_game') }}" method="POST" class="bet-form">
+                    <div class="bet-controls">
+                        <input type="number" name="bet_amount" id="bet_amount" value="{{ current_bet }}" min="1" max="{{ money }}" class="bet-input">
+                        <button type="submit" class="button">Deal New Hand</button>
+                    </div>
+                </form>
+                <a href="{{ url_for('leaderboard') }}" class="button">Leaderboard</a>
+                <a href="{{ url_for('logout') }}" class="button">Log Out</a>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

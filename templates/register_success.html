@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Registrierung</title>
+    <link href="https://fonts.googleapis.com/css?family=Poppins:400,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        {% if success %}
+            <div class="message" style="color: #2ecc40;">✅ {{ message }}</div>
+        {% else %}
+            <div class="message" style="color: #ff4136;">❌ {{ message }}</div>
+        {% endif %}
+        <a href="{{ url_for('index') }}">Zurück zur Startseite</a>
+    </div>
+</body>
+</html>
