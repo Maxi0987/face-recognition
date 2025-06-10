@@ -128,6 +128,29 @@ a:hover {
     }
 }
 
+.camera-frame {
+    border-radius: 12px;
+    box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.07);
+    border: 2px solid #e0e0e0;
+    margin-bottom: 24px;
+    background: #fafafa;
+}
+
+.loader {
+    border: 4px solid #eee;
+    border-top: 4px solid #ff6ec4;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    animation: spin 1s linear infinite;
+    margin: 16px auto 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg);}
+    100% { transform: rotate(360deg);}
+}
+
 @media screen and (max-width: 768px) {
     .login-container {
         padding: 30px;
