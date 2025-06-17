@@ -129,6 +129,9 @@ def gen_frames(client_id):
 @app.route('/video_feed')
 def video_feed():
     client_id = request.remote_addr
+    # Gespeicherte Encodings vor jedem Login erneut laden,
+    # damit neu registrierte Nutzer sofort erkannt werden
+    reload_face_encodings()
     response = Response(gen_frames(client_id), mimetype='multipart/x-mixed-replace; boundary=frame')
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
