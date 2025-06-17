@@ -12,15 +12,23 @@
         <img class="camera-frame" id="video-stream" src="https://via.placeholder.com/320x240" width="320" height="240" alt="Kamera">
         <p>Bitte schauen Sie in die Kamera, um sich anzumelden.</p>
         <div class="loader" id="loader" style="display:none;"></div>
-        <form method="post" action="/capture_face">
-            <input id="register-username" type="text" name="username" placeholder="Benutzername" required>
-            <button id="register-btn" type="submit">Gesicht registrieren</button>
-        </form>
+        <div class="register-area">
+            <input id="register-username" type="text" placeholder="Benutzername" required>
+            <button id="register-btn" type="button">Gesicht registrieren</button>
+        </div>
+        <canvas id="capture-canvas" width="320" height="240" style="display:none;"></canvas>
         <div id="register-message" class="message"></div>
     </div>
     <script>
-        // Test script - removed Flask-specific code
+        // Simple demo script for static preview
         document.getElementById('loader').style.display = 'block';
+        document.getElementById('register-btn').addEventListener('click', function() {
+            const canvas = document.getElementById('capture-canvas');
+            const ctx = canvas.getContext('2d');
+            const img = document.getElementById('video-stream');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            document.getElementById('register-message').textContent = 'Bild aufgenommen (Test)';
+        });
     </script>
 </body>
 </html> 

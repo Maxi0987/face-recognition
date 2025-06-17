@@ -5,6 +5,7 @@ import numpy as np
 import mysql.connector
 import random
 import logging
+import threading
 from flask import Flask, render_template, Response, redirect, url_for, session, request, jsonify, make_response
 import cv2
 import face_recognition
@@ -63,9 +64,22 @@ def reload_face_encodings():
 
 reload_face_encodings()
 
+# Verwende eine globale Kamera, um Probleme beim erneuten 
+# Öffnen zu vermeiden
+camera_lock = threading.Lock()
+camera = None
+
+def get_camera():
+    """Liefert ein einzelnes Camera-Objekt."""
+    global camera
+    with camera_lock:
+        if camera is None or not camera.isOpened():
+            camera = cv2.VideoCapture(0)
+        return camera
+
 # Video-Stream-Generator
 def gen_frames(client_id):
-    cap = cv2.VideoCapture(0)
+    cap = get_camera()
     if not cap.isOpened():
         # Return a placeholder image if camera is not available
         error_img = np.full((240, 320, 3), 200, dtype=np.uint8)
@@ -77,7 +91,8 @@ def gen_frames(client_id):
         return
     try:
         while True:
-            success, frame = cap.read()
+            with camera_lock:
+                success, frame = cap.read()
             if not success:
                 break
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -107,11 +122,16 @@ def gen_frames(client_id):
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
     finally:
-        cap.release()
+        # Kamera nicht sofort freigeben, um erneute
+        # Initialisierungen zu vermeiden
+        pass
 
 @app.route('/video_feed')
 def video_feed():
     client_id = request.remote_addr
+    # Gespeicherte Encodings vor jedem Login erneut laden,
+    # damit neu registrierte Nutzer sofort erkannt werden
+    reload_face_encodings()
     response = Response(gen_frames(client_id), mimetype='multipart/x-mixed-replace; boundary=frame')
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
@@ -346,70 +366,6 @@ def register_face():
         print(f"Register Face: Exception occurred: {e}")  # Debug
         return jsonify({'success': False, 'message': f'Fehler: {str(e)}'})
 
-@app.route('/capture_face', methods=['POST'])
-def capture_face():
-    username = request.form.get('username')
-    if not username:
-        return render_template('register_success.html', success=False, message='Kein Username empfangen.')
-
-    # Prüfe, ob Username schon existiert
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        if cursor.fetchone():
-            cursor.close()
-            conn.close()
-            return render_template('register_success.html', success=False, message='Username existiert bereits!')
-    except Exception as e:
-        return render_template('register_success.html', success=False, message=f'DB-Fehler: {str(e)}')
-
-    # Foto aufnehmen
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        return render_template('register_success.html', success=False, message='Kamera konnte nicht geöffnet werden.')
-    ret, frame = cap.read()
-    cap.release()
-    if not ret or frame is None:
-        return render_template('register_success.html', success=False, message='Konnte kein Bild aufnehmen.')
-
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    face_locations = face_recognition.face_locations(rgb_frame)
-    if len(face_locations) == 0:
-        return render_template('register_success.html', success=False, message='Kein Gesicht erkannt!')
-    if len(face_locations) > 1:
-        return render_template('register_success.html', success=False, message='Bitte nur ein Gesicht im Bild!')
-
-    # User in DB anlegen
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password, money) VALUES (%s, %s, %s)", (username, '', 100))
-        conn.commit()
-        user_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        return render_template('register_success.html', success=False, message=f'DB-Fehler beim Anlegen: {str(e)}')
-
-    # Gesicht speichern
-    save_dir = os.path.join('assets', 'Good')
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    filename = f"{user_id}.jpg"
-    save_path = os.path.join(save_dir, filename)
-    success = cv2.imwrite(save_path, frame)
-    if not success:
-        return render_template('register_success.html', success=False, message='Fehler beim Speichern des Bildes.')
-
-    # Encoding nachladen
-    encoding = face_recognition.face_encodings(rgb_frame, face_locations)[0]
-    known_encodings.append(encoding)
-    known_user_ids.append(user_id)
-    face_user_map[encoding.tobytes()] = user_id
-    reload_face_encodings()
-
-    return render_template('register_success.html', success=True, message='Gesicht und Account erfolgreich registriert!')
 
 # Blackjack-Routen (angepasst: kein klassischer Login mehr, sondern session['user_id'] durch FaceID)
 @app.route("/blackjack")
