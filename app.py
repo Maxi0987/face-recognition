@@ -1,25 +1,27 @@
-import os
-import base64
-from datetime import datetime
-import numpy as np
-import mysql.connector
-import random
-import logging
-from flask import Flask, render_template, Response, redirect, url_for, session, request, jsonify, make_response
-import cv2
-import face_recognition
-from decimal import Decimal
+import os  # Für Dateisystemoperationen
+import base64  # Für Base64-Dekodierung von Bildern
+from datetime import datetime  # Für Zeitstempel bei Dateinamen
+import numpy as np  # Für Bildverarbeitung mit OpenCV
+import mysql.connector  # Für MySQL-Datenbankzugriff
+import random  # Für Kartendeck-Mischen
+import logging  # Für Logging von Aktionen
+from flask import Flask, render_template, Response, redirect, url_for, session, request, jsonify, make_response  # Flask-Framework und Hilfsfunktionen importieren
+import cv2  # Für Kamera- und Bildverarbeitung
+import face_recognition  # Für Gesichtserkennung
+from decimal import Decimal  # Für exakte Geldbeträge
 
+# Flask-App initialisieren, Template- und Static-Ordner setzen
 app = Flask(
     __name__,
     template_folder='templates',
     static_folder='static'
 )
-app.secret_key = 'dein_geheimer_schluessel'
+app.secret_key = 'dein_geheimer_schluessel'  # Secret Key für Sessions
 
-login_status = {}
-face_user_map = {}  # encoding.tobytes() -> user_id
+login_status = {}  # Speichert Login-Status pro Client-IP
+face_user_map = {}  # Mapping von Face-Encodings zu User-IDs
 
+# Datenbank-Konfiguration
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
@@ -28,26 +30,27 @@ DB_CONFIG = {
 }
 
 def get_db_connection():
+    # Stellt eine Verbindung zur MySQL-Datenbank her
     return mysql.connector.connect(**DB_CONFIG)
 
 def load_face_encodings(folder_path):
+    # Lädt alle Face-Encodings aus dem angegebenen Ordner und ordnet sie User-IDs zu
     encodings = []
     for filename in os.listdir(folder_path):
         if not (filename.endswith('.jpg') or filename.endswith('.png')):
-            continue
+            continue  # Nur Bilddateien verarbeiten
         img_path = os.path.join(folder_path, filename)
         image = face_recognition.load_image_file(img_path)
         face_locations = face_recognition.face_locations(image)
         if face_locations:
             encoding = face_recognition.face_encodings(image, face_locations)[0]
-            # Extrahiere user_id aus Dateinamen: z.B. 1.png oder 1.jpg
+            # User-ID aus Dateinamen extrahieren (z.B. 1.jpg oder face_1_20240501.jpg)
             name_part = os.path.splitext(filename)[0]
             if name_part.isdigit():
                 user_id = int(name_part)
                 encodings.append((encoding, user_id))
                 face_user_map[encoding.tobytes()] = user_id
             else:
-                # Fallback für alte Namenskonvention: face_{user_id}_timestamp.jpg
                 parts = filename.split('_')
                 if len(parts) >= 3 and parts[1].isdigit():
                     user_id = int(parts[1])
@@ -56,18 +59,19 @@ def load_face_encodings(folder_path):
     return encodings
 
 def reload_face_encodings():
+    # Lädt alle bekannten Gesichter neu (z.B. nach Registrierung)
     global good_faces, known_encodings, known_user_ids
     good_faces = load_face_encodings('assets/Good')
     known_encodings = [e[0] for e in good_faces]
     known_user_ids = [e[1] for e in good_faces]
 
-reload_face_encodings()
+reload_face_encodings()  # Initiales Laden der Encodings
 
-# Video-Stream-Generator
+# Video-Stream-Generator für MJPEG-Stream
 def gen_frames(client_id):
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0)  # Öffnet die Kamera
     if not cap.isOpened():
-        # Return a placeholder image if camera is not available
+        # Falls keine Kamera verfügbar ist, zeige Platzhalterbild
         error_img = np.full((240, 320, 3), 200, dtype=np.uint8)
         cv2.putText(error_img, "No Camera", (40, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
         _, buffer = cv2.imencode('.jpg', error_img)
@@ -77,15 +81,15 @@ def gen_frames(client_id):
         return
     try:
         while True:
-            success, frame = cap.read()
+            success, frame = cap.read()  # Lese Frame von Kamera
             if not success:
                 break
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            face_locations = face_recognition.face_locations(rgb_frame)
-            face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Konvertiere zu RGB für face_recognition
+            face_locations = face_recognition.face_locations(rgb_frame)  # Finde Gesichter im Bild
+            face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)  # Berechne Encodings
 
             for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-                matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=0.5)
+                matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=0.5)  # Vergleiche mit bekannten Gesichtern
                 label = "unknown face"
                 user_id = None
                 if True in matches:
@@ -93,24 +97,25 @@ def gen_frames(client_id):
                     user_id = known_user_ids[first_match_index]
                     label = get_username_by_id(user_id)
                     if user_id:
-                        login_status[client_id] = user_id
-                color = (0, 255, 0) if user_id else (0, 255, 255)
-                cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-                cv2.putText(frame, label, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+                        login_status[client_id] = user_id  # Setze Login-Status für diesen Client
+                color = (0, 255, 0) if user_id else (0, 255, 255)  # Grün für erkannt, Gelb für unbekannt
+                cv2.rectangle(frame, (left, top), (right, bottom), color, 2)  # Zeichne Rechteck ums Gesicht
+                cv2.putText(frame, label, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)  # Schreibe Label
 
-            # Wenn eingeloggt, Stream beenden
+            # Beende Stream, wenn Login erkannt wurde
             if login_status.get(client_id):
                 break
 
-            ret, buffer = cv2.imencode('.jpg', frame)
+            ret, buffer = cv2.imencode('.jpg', frame)  # Kodiert Frame als JPEG
             frame = buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
     finally:
-        cap.release()
+        cap.release()  # Gibt die Kamera frei
 
 @app.route('/video_feed')
 def video_feed():
+    # Gibt den MJPEG-Stream für das Frontend zurück
     client_id = request.remote_addr
     response = Response(gen_frames(client_id), mimetype='multipart/x-mixed-replace; boundary=frame')
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -118,6 +123,7 @@ def video_feed():
     return response
 
 def get_username_by_id(user_id):
+    # Holt den Usernamen zur User-ID aus der Datenbank
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
