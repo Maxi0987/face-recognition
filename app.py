@@ -5,6 +5,7 @@ import numpy as np
 import mysql.connector
 import random
 import logging
+import threading
 from flask import Flask, render_template, Response, redirect, url_for, session, request, jsonify, make_response
 import cv2
 import face_recognition
@@ -63,9 +64,22 @@ def reload_face_encodings():
 
 reload_face_encodings()
 
+# Verwende eine globale Kamera, um Probleme beim erneuten 
+# Öffnen zu vermeiden
+camera_lock = threading.Lock()
+camera = None
+
+def get_camera():
+    """Liefert ein einzelnes Camera-Objekt."""
+    global camera
+    with camera_lock:
+        if camera is None or not camera.isOpened():
+            camera = cv2.VideoCapture(0)
+        return camera
+
 # Video-Stream-Generator
 def gen_frames(client_id):
-    cap = cv2.VideoCapture(0)
+    cap = get_camera()
     if not cap.isOpened():
         # Return a placeholder image if camera is not available
         error_img = np.full((240, 320, 3), 200, dtype=np.uint8)
@@ -77,7 +91,8 @@ def gen_frames(client_id):
         return
     try:
         while True:
-            success, frame = cap.read()
+            with camera_lock:
+                success, frame = cap.read()
             if not success:
                 break
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -107,7 +122,9 @@ def gen_frames(client_id):
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
     finally:
-        cap.release()
+        # Kamera nicht sofort freigeben, um erneute
+        # Initialisierungen zu vermeiden
+        pass
 
 @app.route('/video_feed')
 def video_feed():
