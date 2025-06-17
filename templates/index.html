@@ -24,10 +24,11 @@
         <img class="camera-frame skeleton" id="video-stream" src="{{ url_for('video_feed') }}" width="320" height="240" alt="Kamera" loading="eager">
         <p>Bitte schauen Sie in die Kamera, um sich anzumelden.</p>
         <div class="loader" id="loader" style="display:none;"></div>
-        <form method="post" action="/capture_face">
-            <input id="register-username" type="text" name="username" placeholder="Benutzername" required>
-            <button id="register-btn" type="submit">Gesicht registrieren</button>
-        </form>
+        <div class="register-area">
+            <input id="register-username" type="text" placeholder="Benutzername" required>
+            <button id="register-btn" type="button">Gesicht registrieren</button>
+        </div>
+        <canvas id="capture-canvas" width="320" height="240" style="display:none;"></canvas>
         <div id="register-message" class="message"></div>
     </div>
     <script>
@@ -62,6 +63,35 @@
                     }
                 });
         }, 1000);
+
+        document.getElementById('register-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('register-username').value.trim();
+            if (!username) return;
+            const canvas = document.getElementById('capture-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            fetch("{{ url_for('register_face') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, image: dataUrl })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const msg = document.getElementById('register-message');
+                msg.textContent = data.message;
+                msg.style.color = data.success ? '#2ecc40' : '#ff4136';
+                if (data.success) {
+                    document.getElementById('register-username').value = '';
+                }
+            })
+            .catch(() => {
+                const msg = document.getElementById('register-message');
+                msg.textContent = 'Fehler beim Senden';
+                msg.style.color = '#ff4136';
+            });
+        });
     </script>
 </body>
 </html>
